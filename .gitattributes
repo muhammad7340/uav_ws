@@ -1,0 +1,15 @@
+# Normalize line endings for text files
+* text=auto
+
+# Shell scripts must keep LF so they run on Linux
+*.sh   text eol=lf
+*.py   text eol=lf
+
+# Binary assets (no diff / no EOL conversion)
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.PNG  binary
+*.mp4  binary
+*.pdf  binary
+*.dae  -diff

@@ -1,0 +1,35 @@
+# Python dependencies for the perception stack (install into ./venv).
+# ROS 2 Python packages (rclpy, cv_bridge, tf_transformations, ...) come from apt,
+# not from pip; see README.md -> Installation.
+#
+# Versions are pinned to the tested setup (Ubuntu 24.04, Python 3.12, ROS 2 Jazzy).
+
+# --- Deep learning / inference ---
+torch==2.9.1
+torchvision==0.24.1
+timm==1.0.22
+openvino==2025.4.1
+openvino-tokenizers==2025.4.1.0
+nncf==2.19.0
+optimum==2.0.0
+optimum-intel==1.26.1
+transformers==4.55.4
+tokenizers==0.21.4
+huggingface-hub==0.36.0
+ultralytics==8.3.241
+clip @ git+https://github.com/ultralytics/CLIP.git@643beff3883b5720d94b6b9c9eca12fa9fb72fb1
+
+# --- Vision / utilities (GroundingDINO, EfficientSAM, BLIP) ---
+numpy==2.2.6
+scipy==1.16.3
+opencv-python==4.12.0.88
+pillow==12.0.0
+supervision==0.27.0
+pycocotools==2.0.11
+addict==2.4.0
+yapf==0.43.0
+matplotlib==3.10.8
+tqdm==4.67.1
+
+# --- Tooling ---
+gdown>=5.2          # downloads the OpenVINO IR zip from Google Drive

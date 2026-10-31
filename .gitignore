@@ -1,0 +1,65 @@
+# =============================================================================
+#  uav_ws — git ignore rules
+#  Rule of thumb: commit source, configs, URDF/worlds/meshes and docs.
+#  Never commit build outputs, virtualenvs or model weights
+#  (weights are restored with scripts/download_models.sh).
+# =============================================================================
+
+# ---- colcon / ament build outputs -------------------------------------------
+build/
+install/
+log/
+
+# ---- Python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ---- Virtual environments ----------------------------------------------------
+venv/
+.venv/
+*-venv/
+
+# ---- Model weights (downloaded, never committed) -----------------------------
+*.pt
+*.pth
+*.pt.zip
+*.onnx
+*.safetensors
+*.ckpt
+*.engine
+*.ts
+*.tflite
+
+# OpenVINO IRs for GroundingDINO / EfficientSAM / BLIP (Google Drive zip)
+**/modules/openvino_irs/*.xml
+**/modules/openvino_irs/*.bin
+
+# SmolVLM OpenVINO exports: keep only scripts and test images
+tools/smolvlm/*/*
+!tools/smolvlm/*/*.py
+!tools/smolvlm/*/*.png
+!tools/smolvlm/*/*.jpg
+
+# OpenVINO compiled-model cache
+ov_cache/
+
+# ---- Runtime / generated output ----------------------------------------------
+*.bag
+*.db3
+*.mcap
+rosbag2_*/
+frames_*.gv
+frames_*.pdf
+*.zip
+
+# ---- Jupyter -----------------------------------------------------------------
+.ipynb_checkpoints/
+
+# ---- IDE / OS ----------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
