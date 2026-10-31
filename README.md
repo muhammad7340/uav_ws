@@ -227,7 +227,7 @@ cd ~/uav_ws
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 
-ros2 launch drone_basic spawn_robot.launch.py
+ros2 launch drone_basic spawn_robot.launch.py world:=abc.sdf 
 ```
 
 This one launch file starts:
