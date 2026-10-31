@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- Floating debris: Swishy's driftwood log scaled 5.6x (0.56 m tall, 2.4 m long).
+     Model origin = centre of the log's base; the generator puts it at the water line. -->
+<sdf version="1.8">
+  <model name="flood_driftwood">
+    <static>true</static>
+    <link name="link">
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <pose>0.018 -0.188 -0.15 1.5708 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>meshes/WoodLog_Moss.obj</uri>
+            <scale>0.84 0.84 0.84</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+</sdf>

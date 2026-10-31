@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<!-- Placeholder so model://flood_people resolves; scene_gen.py writes <actor> blocks
+     that use model://flood_people/meshes/walk.dae as skin and animation. -->
+<sdf version="1.8">
+  <model name="flood_people">
+    <static>true</static>
+    <link name="link"/>
+  </model>
+</sdf>

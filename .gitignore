@@ -63,3 +63,14 @@ frames_*.pdf
 *.swp
 *~
 .DS_Store
+
+# ---- FloodScout-VLM (src/flood_vlm) ------------------------------------------
+# GGUF weights live in ~/models/qwen35 (scripts/setup_vlm.sh), never in the repo
+*.gguf
+# mission runs and generated datasets; results/ is committed
+runs/
+data/
+# generated worlds: keep only the demo seed
+src/drone_basic/worlds/flood_town_*
+!src/drone_basic/worlds/flood_town_7.sdf
+!src/drone_basic/worlds/flood_town_7.gt.json

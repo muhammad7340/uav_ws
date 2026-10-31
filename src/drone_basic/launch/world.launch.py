@@ -3,7 +3,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import  LaunchConfiguration, PathJoinSubstitution, TextSubstitution
+from launch.substitutions import  LaunchConfiguration, PathJoinSubstitution, PythonExpression, TextSubstitution
 
 
 def generate_launch_description():
@@ -11,6 +11,11 @@ def generate_launch_description():
     world_arg = DeclareLaunchArgument(
         'world', default_value='world.sdf',
         description='Name of the Gazebo world file to load'
+    )
+
+    headless_arg = DeclareLaunchArgument(
+        'headless', default_value='false',
+        description='Run only the Gazebo server with headless rendering (no GUI)'
     )
 
     pkg_drone_basic = get_package_share_directory('drone_basic')
@@ -30,7 +35,8 @@ def generate_launch_description():
             'worlds',
             LaunchConfiguration('world')
         ]),
-        TextSubstitution(text=' -r -v -v1')],
+        TextSubstitution(text=' -r -v -v1'),
+        PythonExpression(["' -s --headless-rendering' if '", LaunchConfiguration('headless'), "' == 'true' else ''"])],
         #TextSubstitution(text=' -r -v -v1 --render-engine ogre --render-engine-gui-api-backend opengl')],
         'on_exit_shutdown': 'true'}.items()
     )
@@ -38,6 +44,7 @@ def generate_launch_description():
     launchDescriptionObject = LaunchDescription()
 
     launchDescriptionObject.add_action(world_arg)
+    launchDescriptionObject.add_action(headless_arg)
     launchDescriptionObject.add_action(gazebo_launch)
 
     return launchDescriptionObject

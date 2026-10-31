@@ -1,0 +1,15 @@
+# FloodScout-VLM mission constants (FLOOD_VLM_PLAN.md section 4).
+world_name: flood_town            # <world name="..."> in generated SDF
+area: {xmin: -30, xmax: 30, ymin: -30, ymax: 30}
+home: {x: 0.0, y: -26.0}          # staging area (dry mound, ambulance, boat). Drone spawns here.
+survey_alt: 20.0                  # one frame covers ~34 x 25 m
+look_alt: 8.0
+cruise_speed: 2.0
+ascend_speed: 1.5
+descend_speed: 1.2
+settle_s: 1.5                     # wait after arrival before grabbing a frame
+water: {start: 0.8, steps: [1.6, 2.4], step_every_s: 120}   # sim seconds
+lookagain_conf: 0.6
+merge_radius_m: 2.0
+beacon_min_dist_from_person_m: 1.5
+llm: {url: "http://127.0.0.1:8080/v1/chat/completions", max_tokens_fast: 384, max_tokens_think: 1024, temperature: 0.2}

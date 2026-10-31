@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<!-- Sandbag wall from nav_ws2 (sandbags_half.dae at scale 25 = 1.2 x 0.7 x 1.0 m).
+     Visual only: it is set dressing on the staging mound and embankments. -->
+<sdf version="1.8">
+  <model name="flood_sandbags">
+    <static>true</static>
+    <link name="link">
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <mesh>
+            <uri>meshes/sandbags_half.dae</uri>
+            <scale>25 25 25</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+</sdf>

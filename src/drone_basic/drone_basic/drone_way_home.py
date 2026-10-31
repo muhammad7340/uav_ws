@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 import math, rclpy
-from geometry_msgs.msg import Twist
+from collections import deque
+from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger
 import threading
 import tf_transformations as tft
@@ -27,8 +28,13 @@ class GoHome(Node):
         self.declare_parameter('landing_height',     0.15)
         self.declare_parameter('control_rate',       20.0)  # Hz
         self.declare_parameter('xy_gain', 0.8)
+        # 3D goal input (drone/goal_pose, frame odom)
+        self.declare_parameter('goal_topic',        'drone/goal_pose')
+        self.declare_parameter('goal_z_tolerance',   0.15)
+        self.declare_parameter('z_gain',             1.0)
         self.last_odom = None
         self._last_twist = Twist()
+        self._recent_twists: deque[Twist] = deque(maxlen=10)  # our own echoes
         
         # Topics / services
         odom_t = self.get_parameter('odom_topic').value
@@ -39,11 +45,19 @@ class GoHome(Node):
         self.create_subscription(Twist, cmd_t, self._cmd_watch_cb, 10)
         self.create_service(Trigger, 'go_home', self._srv_home_cb)
         self.create_subscription(String, wpt_t, self._waypoint_cb, 10)
+        goal_t = self.get_parameter('goal_topic').value
+        self.create_subscription(PoseStamped, goal_t, self._goal_cb, 10)
+        self.state_pub = self.create_publisher(String, 'drone/state', 10)
+        self.reached_pub = self.create_publisher(Bool, 'drone/goal_reached', 10)
+        self.create_timer(0.2, self._publish_state)
         # State
         self.current:  tuple[float, float, float] | None = None
         self.home:     tuple[float, float, float] | None = None
         self.wpts:     list[tuple[float, float, float] | None] = [None] * 5
         self.target:   tuple[float, float, float] | None = None
+        self.goal:     tuple[float, float, float] | None = None
+        self._goal_z_first = True
+        self._goal_reached_sent = False
         self.state: str = 'IDLE'
         # self._last_autonomous_pub = self.get_clock().now()  # only when FSM != IDLE
         rate = self.get_parameter('control_rate').value
@@ -65,16 +79,19 @@ class GoHome(Node):
         if self.state == 'IDLE':
             return  
 
-        # ❷ Is this twist numerically identical to the one we just issued?
-        same = (
-            abs(msg.linear.x  - self._last_twist.linear.x)  < 1e-4 and
-            abs(msg.linear.y  - self._last_twist.linear.y)  < 1e-4 and
-            abs(msg.linear.z  - self._last_twist.linear.z)  < 1e-4 and
-            abs(msg.angular.x - self._last_twist.angular.x) < 1e-4 and
-            abs(msg.angular.y - self._last_twist.angular.y) < 1e-4 and
-            abs(msg.angular.z - self._last_twist.angular.z) < 1e-4
-        )
-        if same:
+        # ❷ Is this twist numerically identical to one we just issued?
+        #    (compare against a short history: under load the echo can arrive
+        #    after the next control tick has already published a new twist)
+        def same(t: Twist) -> bool:
+            return (
+                abs(msg.linear.x  - t.linear.x)  < 1e-4 and
+                abs(msg.linear.y  - t.linear.y)  < 1e-4 and
+                abs(msg.linear.z  - t.linear.z)  < 1e-4 and
+                abs(msg.angular.x - t.angular.x) < 1e-4 and
+                abs(msg.angular.y - t.angular.y) < 1e-4 and
+                abs(msg.angular.z - t.angular.z) < 1e-4
+            )
+        if any(same(t) for t in self._recent_twists):
             return  # merely our echo
 
         # ❸ Anything else ⇒ manual override → stop mission
@@ -99,6 +116,29 @@ class GoHome(Node):
         self.get_logger().info('Home sequence initiated')
         res.success, res.message = True, 'Going home'
         return res
+
+    # ───────── 3D goal handling ───────────────────────────────────────────────
+    def _goal_cb(self, msg: PoseStamped) -> None:
+        """New goal pre-empts any current goal (climb first if going up)."""
+        if self.current is None:
+            self.get_logger().warn('No odometry - cannot fly to goal')
+            return
+        p = msg.pose.position
+        self.goal = (p.x, p.y, p.z)
+        self._goal_z_first = p.z > self.current[2]
+        self.state = 'GOAL_Z' if self._goal_z_first else 'GOAL_XY'
+        self._goal_reached_sent = False
+        self.reached_pub.publish(Bool(data=False))
+        self.get_logger().info(
+            f'Goal ({p.x:.2f}, {p.y:.2f}, {p.z:.2f}) -> {self.state}')
+
+    def _vel_z(self, dz: float, asc: float, dsc: float) -> float:
+        """P controller on height, clamped to ascend/descend speed."""
+        vz = self.get_parameter('z_gain').value * dz
+        return max(-dsc, min(asc, vz))
+
+    def _publish_state(self) -> None:
+        self.state_pub.publish(String(data=self.state))
 
     # ───────── waypoint handling ─────────────────────────────────────────────
     def _vel_xy(self, dx: float, dy: float) -> tuple[float, float]:
@@ -211,14 +251,39 @@ class GoHome(Node):
                 tw.linear.z = asc if diff > 0 else -dsc
             else:
                 self.state = 'IDLE'; self.get_logger().info('Waypoint reached')
-        else:  # IDLE – publish NOTHING to avoid masking user cmd_vel
+        # ── 3D goal: GOAL_Z / GOAL_XY in the order chosen in _goal_cb, then hover
+        elif self.state in ('GOAL_Z', 'GOAL_XY', 'GOAL_HOLD'):
+            gx, gy, gz = self.goal
+            tol_gz = self.get_parameter('goal_z_tolerance').value
+            dx, dy, dz = gx - x, gy - y, gz - z
+            if self.state == 'GOAL_Z':
+                tw.linear.z = self._vel_z(dz, asc, dsc)
+                if abs(dz) < tol_gz:
+                    self.state = 'GOAL_XY' if self._goal_z_first else 'GOAL_HOLD'
+                    self.get_logger().info(f'→ {self.state}')
+            elif self.state == 'GOAL_XY':
+                tw.linear.x, tw.linear.y = self._vel_xy(dx, dy)
+                if self._goal_z_first:          # hold the height reached
+                    tw.linear.z = self._vel_z(dz, asc, dsc)
+                if math.hypot(dx, dy) < tol_xy:
+                    self.state = 'GOAL_HOLD' if self._goal_z_first else 'GOAL_Z'
+                    self.get_logger().info(f'→ {self.state}')
+            else:  # GOAL_HOLD: hover on the goal
+                tw.linear.x, tw.linear.y = self._vel_xy(dx, dy)
+                tw.linear.z = self._vel_z(dz, asc, dsc)
+            if self.state == 'GOAL_HOLD' and not self._goal_reached_sent:
+                self._goal_reached_sent = True  # publish "reached" once per goal
+                self.reached_pub.publish(Bool(data=True))
+                self.get_logger().info('Goal reached - holding')
+        else:  # IDLE – publish NOTHING to avoid masking user cmd_vel
             return
 
         # Publish and remember time (for cmd_vel filtering) -------------------
         tw.linear.x, tw.linear.y = self._to_body(
         tw.linear.x, tw.linear.y, yaw)
+        self._last_twist = tw
+        self._recent_twists.append(tw)
         self.cmd_pub.publish(tw)
-        self._last_twist = tw 
 
 # ───────── main ───────────────────────────────────────────────────────────────
 def main():
