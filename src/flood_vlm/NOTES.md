@@ -72,3 +72,50 @@ Things checked on the real system that differ from (or add to) the plan.
 - `spawn_beacon` sends the SDF inline (`sdf:` field). With `sdf_filename` + deleting the temp file
   the service returned true but nothing appeared: `create` is processed asynchronously.
 - Down camera orientation (yaw 0): image up = world +x, image right = world -y.
+
+## Phase 2
+
+### Results (`scripts/try_survey.py`, seed 7, real Qwen3.5-4B Q4_K_M, think off)
+| run | cell (world) | GT in frame | survey P / R | survey loc err | look-again loc err | JSON fails |
+|---|---|---|---|---|---|---|
+| `runs/try_survey_seed7` (ray-plane only) | (-15, -15) | 3 | 1.00 / 1.00 | 0.43 m | 0.41 m (0.61 / 0.29 / 0.32) | 0 / 4 |
+| `runs/try_survey_seed7_nw` (+ triangulation, point-guided look) | (-19, 13) | 3 | 1.00 / 1.00 | 0.29 m | **0.10 m** (0.05 / 0.18* / 0.05) | 0 / 4 |
+
+\* the close look answered "no person" for the lying person on the 3.9 m roof, so the survey estimate was kept.
+With the two `json_object` calls of Phase 1 that is **0 JSON failures in 10 calls**. `response_format`
+`json_schema` is honoured by llama-server (grammar-constrained), no retries were needed.
+
+Latency (machine throttled, see Phase 1): survey 266-431 s (429 prompt tokens; 441-526 generated
+tokens at 1.5 tok/s dominate), look-again 127-153 s (~400 prompt, ~130 generated).
+
+### Changes against the plan
+- **Survey grid.** The image's short side (25 m at 20 m, ~21 m at roof height) lies along world x
+  (the drone faces +x), the long side (34 m / ~29 m) along y. The plan's 4 cells at (+-15, +-15)
+  leave a strip around x = 0, y = 0 and the edges uncovered, which the offline test caught (recall
+  7/9). Default grid is now 3 x 2: x in {-19, 0, 19}, y in {-13, 13} (2-3 m overlap at roof height).
+- **Roof height by two-view triangulation.** The plan projects roof people onto z = water + 2 m and
+  that z is what triage would see, so a water rise could never make a roof person "high". Each
+  person keeps the camera ray through its bbox centre from every view; after look-again the rays are
+  intersected (least squares, needs >= 8 deg between rays) and the torso height minus a posture offset
+  (sitting 0.6, standing 1.0, lying 0.15 m) gives `surface_z`. Triage gets `roof_height_est` and
+  `height_above_water_est` from that. Measured: 3.0 m roofs within 4 cm in the offline test; in sim
+  a lying person on a 3.0 m roof came out at 3.7 m (the bbox centre of a long body shifts with view
+  angle), a wading person's support at 0.92 m (true 0.76).
+- **Offset look-again.** If every view of a person so far was near-vertical (< 10 deg) the look-again
+  hovers 3 m to the side so the new ray is ~30 deg off and the height can still be triangulated.
+- **Point-guided P_LOOK.** "near the centre (around point [x, y])": the expected position is projected
+  into the close-up. Without it the VLM picks whichever person is most central, which on a roof
+  with two people (or after the offset) is often the wrong one.
+- **Geometry overrides labels.** A support triangulated less than 0.3 m above the water is treated as
+  `in_water`, whatever the VLM said (it called the wading person "on_dry_ground" from 20 m and
+  "on_roof" from 8 m).
+- Boxes slightly outside 0-1000 are clipped instead of dropped.
+
+### Observations
+- Posture from above is the weakest output: the walk.dae actors (standing) were called "lying" 2/3
+  times at 8 m; Rescue Randy lying was recognised.
+- `geometry.py` was checked against the sim: synthetic camera says image up = world +x, image right =
+  world -y; the beacon test in Phase 1 shows the same. TF (EKF) camera position agrees with ground truth
+  within ~5 cm while hovering.
+- The odom->world offset is measured from ground truth vs EKF at start-up (`DroneIO.wait_ready`); it
+  is [0.0, -26.0, 2.83] for seed 7.
