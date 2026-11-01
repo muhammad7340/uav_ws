@@ -47,9 +47,11 @@ Within a level, less height above water comes first. Give each person a short re
 Think step by step in "reasoning" (who is in water, who is lying, whose roof is lowest), then rank.
 Return JSON {{"reasoning": "...", "ranking": [{{"person_id", "level", "reason"}}]}} with every person exactly once."""
 
+# Neutral wording on purpose: "Aerial photo of a flooded area" made the model call 27/27
+# non-flooded FloodNet scenes "flooded" (NOTES.md, Phase 4).
 P_VQA = (
-    'Aerial photo of a flooded area. Answer the question with a single word or number. '
+    'Aerial drone photo. Answer the question with a single word or number. '
     'Question: {question}'
 )
 
-P_POINT = 'Aerial photo of a flooded area. {question} Answer with point_2d [x, y] in 0-1000.'
+P_POINT = 'Aerial drone photo. {question} Answer with point_2d [x, y] in 0-1000.'

@@ -276,7 +276,7 @@ class Mission:
         p = self.mem.get(pid)
         if p is None or p.status == 'rejected':
             return
-        if p.beacon_xy is None or p.surface_dry is False:
+        if (p.beacon_xy is None or p.surface_dry is False) and self.args.get('lookagain', True):
             self.event('beacon', f'{pid}: no dry beacon point yet, looking again')
             p.beacon_xy = None
             self.t_look_again(pid)
