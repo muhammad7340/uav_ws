@@ -12,8 +12,8 @@ P_LOOK = (
     'Close aerial view. Is there a person near the centre (around point {point} in 0-1000)? '
     'Give bbox_2d of that person, location, posture, '
     'whether the surface they are on is dry, and the best SAFE point to place a rescue beacon: '
-    'dry, flat, at least ~1.5 m from the person, reachable by boat (next to water). Give it as '
-    'point_2d [x,y] in 0-1000 and one short reason.'
+    'dry, flat, 2-4 m from the person (NOT on the person), reachable by boat (next to water). '
+    'Give it as beacon_point_2d [x,y] in 0-1000 and one short reason in your own words.'
 )
 
 P_PLAN = """You command a rescue drone over a flooded town. Turn the responder's request into a plan.
@@ -23,7 +23,7 @@ Request: "{mission}"
 Area (world metres): x {xmin}..{xmax}, y {ymin}..{ymax}. The drone starts at home ({hx}, {hy}).
 Tools (use only these, in a sensible order):
 - takeoff {{alt}}: climb at home to alt metres.
-- survey {{alt, cells}}: photograph the area from alt metres; cells = list of [x, y] image centres.
+- survey {{alt, cells}}: photograph the area from alt metres (18-25 m); cells = list of [x, y] image centres.
   At 20 m one image covers about 25 m along x and 34 m along y, so 6 cells (3 along x, 2 along y)
   cover the area, e.g. [[-19,-13],[0,-13],[19,-13],[19,13],[0,13],[-19,13]].
 - look_again {{person_id}}: fly low over a person to confirm them (the system adds these automatically).
@@ -32,7 +32,8 @@ Tools (use only these, in a sensible order):
 - report {{}}: write the rescue report.
 - return_home {{}}: fly home and land.
 Rules: start with takeoff, end with return_home; altitude 5-25 m; cells inside the area.
-Return JSON {{"steps": [{{"tool": ..., "args": {{...}}}}]}}."""
+Think step by step in "reasoning" (2-3 short sentences), then give the steps.
+Return JSON {{"reasoning": "...", "steps": [{{"tool": ..., "args": {{...}}}}]}}."""
 
 P_PLAN_FIX = 'Your plan was invalid: {errors}. Return a corrected plan as JSON.'
 
@@ -43,7 +44,8 @@ People found by the drone (world metres; roof_height_est is the estimated height
 Rank everyone by who needs the rescue boat first. Levels: critical (in the water, or lying down /
 injured), high (on a roof less than 1 m above the water), medium (safe for now).
 Within a level, less height above water comes first. Give each person a short reason.
-Return JSON {{"ranking": [{{"person_id", "level", "reason"}}]}} with every person exactly once."""
+Think step by step in "reasoning" (who is in water, who is lying, whose roof is lowest), then rank.
+Return JSON {{"reasoning": "...", "ranking": [{{"person_id", "level", "reason"}}]}} with every person exactly once."""
 
 P_VQA = (
     'Aerial photo of a flooded area. Answer the question with a single word or number. '

@@ -14,7 +14,7 @@ import threading
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
-from std_msgs.msg import Float32
+from std_msgs.msg import Empty, Float32
 
 from flood_vlm import gz_tools
 from flood_vlm.config import load_config
@@ -32,6 +32,7 @@ class WaterController(Node):
         self.declare_parameter('step_every_s', float(cfg['water']['step_every_s']))
         self.declare_parameter('enabled', True)        # false: only manual levels
         self.declare_parameter('gt_path', '')          # *.gt.json, to move debris + boat
+        self.declare_parameter('start_on_mission', False)  # clock starts on /flood/mission_started
 
         self.world = self.get_parameter('world').value
         self.level = float(self.get_parameter('start').value)
@@ -45,6 +46,8 @@ class WaterController(Node):
         self.pub = self.create_publisher(Float32, '/flood/water_level', latched)
         self.create_subscription(Float32, '/flood/set_water_level', self._manual_cb, 10)
         self.t0 = None
+        self.wait_mission = bool(self.get_parameter('start_on_mission').value)
+        self.create_subscription(Empty, '/flood/mission_started', self._mission_cb, 10)
         self.next_idx = 0
         self._lock = threading.Lock()
         self.create_timer(0.5, self._tick)
@@ -76,6 +79,8 @@ class WaterController(Node):
         if now <= 0.0:                 # no /clock yet
             return
         if self.t0 is None:
+            if self.wait_mission:
+                return
             self.t0 = now
         if not self.enabled or self.next_idx >= len(self.steps):
             return
@@ -83,6 +88,11 @@ class WaterController(Node):
             level = float(self.steps[self.next_idx])
             self.next_idx += 1
             self.set_level(level, f'schedule step {self.next_idx} at sim t={now - self.t0:.0f} s')
+
+    def _mission_cb(self, _msg: Empty):
+        if self.wait_mission and self.t0 is None:
+            self.t0 = self.get_clock().now().nanoseconds * 1e-9
+            self.get_logger().info('mission started: water clock running')
 
     def _manual_cb(self, msg: Float32):
         self.set_level(float(msg.data), 'manual')

@@ -48,9 +48,14 @@ LOOK = {
 
 TOOLS = ['takeoff', 'survey', 'look_again', 'triage', 'mark_beacon', 'report', 'return_home']
 
+# 'reasoning' comes first so the model thinks briefly before committing: the plan's
+# fallback for CPU, where Qwen3.5's thinking mode needs > 3k tokens (NOTES.md).
+REASONING = {'type': 'string', 'maxLength': 400}
+
 PLAN = {
     'type': 'object',
     'properties': {
+        'reasoning': REASONING,
         'steps': {'type': 'array', 'minItems': 2, 'maxItems': 16, 'items': {
             'type': 'object',
             'properties': {
@@ -64,12 +69,13 @@ PLAN = {
             },
             'required': ['tool', 'args']}},
     },
-    'required': ['steps'],
+    'required': ['reasoning', 'steps'],
 }
 
 TRIAGE = {
     'type': 'object',
     'properties': {
+        'reasoning': REASONING,
         'ranking': {'type': 'array', 'items': {
             'type': 'object',
             'properties': {
@@ -79,7 +85,7 @@ TRIAGE = {
             },
             'required': ['person_id', 'level', 'reason']}},
     },
-    'required': ['ranking'],
+    'required': ['reasoning', 'ranking'],
 }
 
 # FloodSim-VQA / FloodNet answers (Phase 4)

@@ -28,6 +28,14 @@ def _setup(context):
     os.environ['GZ_SIM_RESOURCE_PATH'] = (os.environ.get('GZ_SIM_RESOURCE_PATH', '')
                                           + os.pathsep + os.path.join(pkg_flood, 'models'))
 
+    # A leftover gz server (the gz CLI ignores SIGTERM once orphaned) would share the
+    # world name and partition: two interleaved clocks and a wrong odom->world offset.
+    import subprocess
+    left = subprocess.run(['pgrep', '-f', 'gz sim .*flood_tow[n]_'], capture_output=True, text=True).stdout.split()
+    if left:
+        raise RuntimeError(f'a flood_town Gazebo server is still running (pids {left}): '
+                           'run scripts/flood_stop.sh first')
+
     world = f'flood_town_{seed}.sdf'
     world_path = os.path.join(pkg_drone, 'worlds', world)
     gt_path = os.path.splitext(world_path)[0] + '.gt.json'
@@ -53,7 +61,8 @@ def _setup(context):
         package='flood_vlm', executable='water_controller', name='water_controller',
         output='screen',
         parameters=[{'use_sim_time': True, 'world': cfg['world_name'], 'gt_path': gt_path,
-                     'enabled': LaunchConfiguration('water_schedule')}])
+                     'enabled': LaunchConfiguration('water_schedule'),
+                     'start_on_mission': LaunchConfiguration('water_on_mission')}])
 
     # Fixed top-down camera, only present in worlds made with --overview-cam.
     overview_bridge = Node(
@@ -70,5 +79,7 @@ def generate_launch_description():
         DeclareLaunchArgument('headless', default_value='false', description='gz server only'),
         DeclareLaunchArgument('water_schedule', default_value='true',
                               description='raise water on the mission.yaml schedule'),
+        DeclareLaunchArgument('water_on_mission', default_value='false',
+                              description='start the water schedule when the mission starts'),
         OpaqueFunction(function=_setup),
     ])

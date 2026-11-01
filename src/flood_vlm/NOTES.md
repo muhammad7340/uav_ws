@@ -119,3 +119,52 @@ tokens at 1.5 tok/s dominate), look-again 127-153 s (~400 prompt, ~130 generated
   within ~5 cm while hovering.
 - The odom->world offset is measured from ground truth vs EKF at start-up (`DroneIO.wait_ready`); it
   is [0.0, -26.0, 2.83] for seed 7.
+
+## Phase 3
+
+### Thinking mode does not fit on CPU
+Qwen3.5-4B with `enable_thinking: true` spent the whole 1024-token budget, then the whole 3072-token
+budget (8+ min at ~6.6 tok/s) reasoning about the plan without emitting the JSON (`finish_reason:
+length`, empty content). Per the plan's risk table, plan and triage now run with thinking **off**
+and a `reasoning` string as the first schema field ("think step by step in reasoning"), which
+takes ~40 s. `think_plan:=true` / `think_triage:=true` still exist for the ablation, and a thinking
+call that fails is retried once without thinking (logged as `<id>_nothink`).
+`max_tokens_think` is 3072, `max_tokens_survey` 768.
+
+### Other changes
+- Water schedule: `step_every_s` 120 -> **180** and the clock starts when the mission starts
+  (`/flood/mission_started`, `water_on_mission:=true`). With 120 s both rises land before the first
+  triage, so nothing would be re-planned.
+- Survey altitude must be **18-25 m** (validator + prompt). The VLM planner picked 15 m and then
+  10 m; the 6-cell grid only covers the area from ~20 m, so recall fell to 0.44.
+- Beacon spot: the VLM's beacon point is used if it is 1.8-15 m from the person. It usually points at
+  the image centre (= on the person), so otherwise the beacon goes 2.5 m out, preferably inside a
+  dry area from the survey (`dry_areas`): the person's own roof, or for people in the water the
+  nearest mound / raised road (4-12 m). Pushing out to exactly 1.5 m failed the GT rule on rounding.
+- A person rejected during the pre-beacon look-again no longer gets a beacon.
+- RViz markers: colour/scale must be floats; an int colour aborts the node inside rclpy's C
+  conversion (`PyFloat_Check` assertion). The offline test's fake publisher now serialises messages.
+- Mission logic runs on the main thread, ROS callbacks on DroneIO's 3-thread executor (instead of
+  "single-threaded executor + VLM worker thread"); same effect, simpler blocking code.
+- The VLM hovers with the sim paused (`/world/flood_town/control`), only after `goal_reached`.
+
+### Run log (seed 7, Q4_K_M, performance profile, turbo on)
+| run | plan | recall / prec. | loc err survey -> look | posture acc | level acc | crit. in top-k | safe beacons | re-plan | VLM calls / JSON err | VLM time | peak RAM |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `seed7_v1` (before the fixes above) | valid, but survey at 10 m | 0.44 / 1.00 | 0.46 -> 0.34 m | 0.00 | 0.25 | 0.33 | 1/4 | 1 (nothing to judge) | 15 / 0 | 719 s | 9.3 GB |
+| `seed7_full` | valid first try, 20 m | **0.89 / 1.00** | 0.42 -> **0.12 m** | 0.25 | 0.38 | 0.33 | **7/8** | 1, **correct** | 20 / 0 | 1093 s* | 10.8 GB |
+
+\* `seed7_full` reports 5458 s of VLM time: the laptop suspended during `survey5` (4365 s wall at a
+normal 6.0 tok/s decode). Without that call: ~1093 s VLM + 443 s flight, ~28 min in total. Typical
+calls: plan 29-43 s, survey 53-108 s (429 prompt tokens), look-again 38-48 s, triage 91 s; decode
+6.4-6.8 tok/s, prefill ~19 tok/s. Peak RAM is the sum of VmHWM over the stack (llama-server ~8.1 GB
+incl. the mmapped weights), measured from /proc at the end of the run.
+
+What still goes wrong: the VLM calls most rooftop people "lying" from above (posture accuracy 0.25),
+which makes them "critical" and flattens the ranking (Kendall tau 0.29); the wading person's beacon
+landed 0.1 m outside the embankment it was aimed at; the lying person on the 3.9 m roof was
+localised 4 m off at survey range and rejected at the look-again.
+
+Runs can be cut short by system suspend or a second Gazebo server: `exit_on_done:=true` leaves the
+gz server orphaned (it ignores SIGTERM), so run `scripts/flood_stop.sh` after each mission;
+`flood_world.launch.py` now refuses to start while one is alive.

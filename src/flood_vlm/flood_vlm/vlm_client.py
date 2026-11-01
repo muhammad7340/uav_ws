@@ -104,6 +104,8 @@ class VLMClient:
         out, timings, raw, reasoning, err = None, {}, '', '', None
         tries = 0
         for temp in (self.temperature, 0.0):
+            if tries and timings.get('finish_reason') == 'length' and think:
+                break        # a 2nd thinking pass would run out again; the caller decides
             tries += 1
             try:
                 resp = self._post(self._payload(jpeg, prompt, schema, think, max_tokens, temp))
