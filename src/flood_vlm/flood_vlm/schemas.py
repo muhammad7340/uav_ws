@@ -49,7 +49,7 @@ LOOK = {
 TOOLS = ['takeoff', 'survey', 'look_again', 'triage', 'mark_beacon', 'report', 'return_home']
 
 # 'reasoning' comes first so the model thinks briefly before committing: the plan's
-# fallback for CPU, where Qwen3.5's thinking mode needs > 3k tokens (NOTES.md).
+# fallback when Qwen3.5's thinking mode needs > 3k tokens per call (NOTES.md).
 REASONING = {'type': 'string', 'maxLength': 400}
 
 PLAN = {

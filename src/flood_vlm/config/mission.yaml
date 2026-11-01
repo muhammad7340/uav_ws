@@ -1,4 +1,4 @@
-# FloodScout-VLM mission constants (FLOOD_VLM_PLAN.md section 4).
+# FloodScout mission constants (FLOOD_VLM_PLAN.md section 4).
 world_name: flood_town            # <world name="..."> in generated SDF
 area: {xmin: -30, xmax: 30, ymin: -30, ymax: 30}
 home: {x: 0.0, y: -26.0}          # staging area (dry mound, ambulance, boat). Drone spawns here.

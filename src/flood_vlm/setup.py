@@ -30,7 +30,7 @@ setup(
     zip_safe=True,
     maintainer='ahtishamsudheer',
     maintainer_email='ahtishamsudheer@gmail.com',
-    description='FloodScout-VLM: language-guided UAV flood-relief scout with a CPU-only VLM',
+    description='FloodScout: language-guided UAV flood-relief scout driven by a vision-language model',
     license='Apache-2.0',
     entry_points={
         'console_scripts': [

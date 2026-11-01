@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the ~90 s FloodScout-VLM demo video from a recorded run.
+"""Render the ~90 s FloodScout demo video from a recorded run.
 
     source scripts/flood_env.sh && scripts/record_showcase.sh 7      # record (~30 min)
     python3 scripts/make_video.py --run runs/showcase_seed7          # render (~2 min)
@@ -7,7 +7,7 @@
 Left: Gazebo showcase camera (whole town, drone marker, rising water, beacons), the live
 down camera and the mission plan with the current step. Right: what Qwen3.5-4B is doing:
 the call (plan / survey / look-again / triage), the image it saw with its boxes, its answer
-and its CPU time; then the rescue ranking and an event log. Flight is sped up; every VLM
+and its compute time; then the rescue ranking and an event log. Flight is sped up; every VLM
 call becomes a short card (the sim is paused while Qwen thinks, so no flight is lost).
 """
 from __future__ import annotations
@@ -201,8 +201,8 @@ class Video:
 
     def header(self, d, ts):
         d.rectangle([0, 0, W, 58], fill=PANEL)
-        d.text((18, 12), 'FloodScout-VLM', font=font(28, True), fill=TXT)
-        d.text((300, 18), 'Qwen3.5-4B on a laptop CPU plans, sees and triages a flood rescue  (ROS 2 + Gazebo)',
+        d.text((18, 12), 'FloodScout', font=font(28, True), fill=TXT)
+        d.text((300, 18), 'Qwen3.5-4B plans, sees and triages a flood rescue  (ROS 2 + Gazebo)',
                font=font(20), fill=DIM)
         water = next((float(e['msg'].split('water ')[1].split(' m')[0]) for e in reversed(self.last_events(ts, ('triage',), 50))
                       if 'water ' in e['msg']), None)
@@ -254,7 +254,7 @@ class Video:
         if os.path.exists(logo):
             lg = Image.open(logo).convert('RGBA').resize((44, 44))
             pil.paste(lg, (x0 + 14, 70), lg)
-        d.text((x0 + 68, 76), 'Qwen3.5-4B  (llama.cpp, Q4_K_M, CPU)', font=font(22, True), fill=ACC)
+        d.text((x0 + 68, 76), 'Qwen3.5-4B  (llama.cpp, Q4_K_M)', font=font(22, True), fill=ACC)
         shown = card
         if shown is None:
             past = [c for v, s, c in self.cards if c is not None and s <= ts]
@@ -268,7 +268,7 @@ class Video:
         role = {'plan': 'language planner', 'survey': 'vision: survey 20 m', 'look': 'vision: look-again 8 m',
                 'triage': 'language reasoning: triage'}.get(kind, kind)
         d.text((x0 + 16, 128), f'{role}', font=font(21, True), fill=TXT)
-        d.text((x0 + 16, 158), f'{secs:.0f} s on CPU   |   {tm.get("prompt_n", "?")} prompt tok, '
+        d.text((x0 + 16, 158), f'{secs:.0f} s compute   |   {tm.get("prompt_n", "?")} prompt tok, '
                f'{tm.get("predicted_n", "?")} out   |   sim paused', font=font(16), fill=DIM)
         y = 192
         out = (call or {}).get('output', {})
@@ -341,8 +341,8 @@ class Video:
             img[:] = (img * 0.28).astype(np.uint8)
         pil = Image.fromarray(img)
         d = ImageDraw.Draw(pil)
-        d.text((120, 200), 'FloodScout-VLM', font=font(72, True), fill=TXT)
-        d.text((124, 300), 'a 4B vision-language model on a laptop CPU plans, sees and triages a flood rescue',
+        d.text((120, 200), 'FloodScout', font=font(72, True), fill=TXT)
+        d.text((124, 300), 'a 4B vision-language model plans, sees and triages a flood rescue',
                font=font(30), fill=DIM)
         q = f'"{self.mission}"'
         n = int(len(q) * min(1.0, max(0.0, (tv - 0.6) / 2.6)))
@@ -357,6 +357,7 @@ class Video:
         m = self.metrics
         mp = cv2.imread(os.path.join(self.run, 'map.png'))
         if mp is not None:
+            mp = mp[36:]            # drop the title line baked into older run maps
             h = 1000
             w = int(mp.shape[1] * h / mp.shape[0])
             paste(img, mp, 40, 50, w, h)
@@ -369,7 +370,7 @@ class Video:
                 ('safe beacons', f"{m.get('safe_beacon_rate') or 0:.2f}  ({m.get('n_beacons')} placed)"),
                 ('re-plans on water rise', f"{m.get('n_replans')}" + (f"  (correct {m['replan_correct']:.0%})" if m.get('replan_correct') is not None else '')),
                 ('VLM calls', f"{m.get('n_vlm_calls')}  ({m.get('n_json_errors')} JSON errors)"),
-                ('flight / VLM time', f"{m.get('flight_sim_s')} s / {m.get('prompt_ms', 0) / 1000 + m.get('gen_ms', 0) / 1000:.0f} s CPU"),
+                ('flight / VLM time', f"{m.get('flight_sim_s')} s / {m.get('prompt_ms', 0) / 1000 + m.get('gen_ms', 0) / 1000:.0f} s"),
                 ('peak RAM', f"{(m.get('ram_peak_mb') or {}).get('total', 0) / 1024:.1f} GB")]
         y = 150
         for k, v in rows:

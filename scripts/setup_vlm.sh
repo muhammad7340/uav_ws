@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  FloodScout-VLM: download the llama.cpp CPU build and the Qwen3.5-4B GGUFs.
+#  FloodScout: download the llama.cpp build and the Qwen3.5-4B GGUFs.
 #
 #  Usage:   scripts/setup_vlm.sh            # Q4_K_M + mmproj (default)
 #           scripts/setup_vlm.sh --q8       # also fetch Q8_0 (Phase 4 ablation)
@@ -22,7 +22,7 @@ fetch() {  # fetch <url> <file>
   curl -L --fail --retry 5 -C - -o "$2" "$1"
 }
 
-# ---- llama.cpp (CPU build, tar.gz since ~b6000; the plan said .zip) --------
+# ---- llama.cpp (prebuilt release, tar.gz since ~b6000; the plan said .zip) --------
 if [ ! -x "$MODEL_DIR/llama.cpp/llama-server" ]; then
   tarball="llama-${LLAMA_TAG}-bin-ubuntu-x64.tar.gz"
   fetch "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_TAG}/${tarball}" "$tarball"

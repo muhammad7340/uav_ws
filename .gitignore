@@ -64,7 +64,7 @@ frames_*.pdf
 *~
 .DS_Store
 
-# ---- FloodScout-VLM (src/flood_vlm) ------------------------------------------
+# ---- FloodScout (src/flood_vlm) ------------------------------------------
 # GGUF weights live in ~/models/qwen35 (scripts/setup_vlm.sh), never in the repo
 *.gguf
 # mission runs and generated datasets; results/ is committed

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop everything that belongs to the FloodScout-VLM stack and leave nothing orphaned.
+# Stop everything that belongs to the FloodScout stack and leave nothing orphaned.
 #
 # Matching by process name is not enough: when a `ros2 launch` dies, its nodes
 # (drone_way_home, water_controller, bridges, ...) and the gz server can survive,

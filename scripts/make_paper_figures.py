@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""All FloodScout-VLM figures and tables, reproducible from the repo data.
+"""All FloodScout figures and tables, reproducible from the repo data.
 
     python3 scripts/make_paper_figures.py               # everything into assets/floodscout/
 
@@ -317,7 +317,7 @@ def fig_vqa():
                            ('floodnet', 'q4_224', 'fn', 'FloodNet 224'), ('floodnet', 'q4_224_primed', 'fn_primed', 'FloodNet, biased prompt')):
         r = R[(d, t, 'ALL')]
         ax.scatter(float(r['wall_s']), float(r['acc']), s=90, color=C[col], label=lab, edgecolor='k', linewidth=0.5)
-    ax.set_xlabel('seconds / question (CPU)')
+    ax.set_xlabel('seconds / question')
     ax.set_ylabel('accuracy')
     ax.set_xlim(0, 25)
     ax.set_ylim(0.3, 0.65)
@@ -509,7 +509,7 @@ def fig_missions():
         end = next((e['t_sim'] for e in ev if e['kind'] == 'done'), last_sim)
         ax.barh(row, max(0, end - last_sim), left=t, color=C['flight'], height=0.6)
     ax.set_yticks(range(len(runs)), [r[1] for r in runs])
-    ax.set_xlabel('seconds (flight = sim time, VLM = CPU compute)')
+    ax.set_xlabel('seconds (flight = sim time, VLM = compute time)')
     from matplotlib.patches import Patch
     ax.legend(handles=[Patch(color=C[k], label=k) for k in ('flight', 'plan', 'survey', 'look', 'triage')],
               frameon=False, ncol=5, fontsize=9, loc='upper center', bbox_to_anchor=(0.5, 1.35))
@@ -626,7 +626,7 @@ def fig_flow(show_run):
     arrow(114.5, 40, 119.5, 40, 'people + heights')
     arrow(139, 23.5, 139, 19.5, 'rescue order')
     arrow(150, 54.5, 120, 59.5, 'water rose -> re-plan', col='#c0392b', rad=-0.15)
-    ax.text(80, 80.5, 'FloodScout-VLM: one 4B vision-language model on a laptop CPU (llama.cpp, Q4_K_M) plans, sees and triages',
+    ax.text(80, 80.5, 'FloodScout: one 4B vision-language model (Qwen3.5-4B) plans, sees and triages a flood rescue',
             ha='center', fontsize=13, weight='bold')
     fig.savefig(os.path.join(OUT, 'fig_flow.png'), dpi=170)
     plt.close(fig)
@@ -645,8 +645,7 @@ def main():
     for r in (args.show_run, 'seed7_full'):
         mp = p('runs', r, 'map.png')
         if os.path.exists(mp):
-            import shutil
-            shutil.copy(mp, os.path.join(OUT, 'fig_map_seed7.png'))
+            cv2.imwrite(os.path.join(OUT, 'fig_map_seed7.png'), cv2.imread(mp)[36:])   # no title line
             break
     print('dataset'); fig_dataset()
     print('vqa'); fig_vqa()

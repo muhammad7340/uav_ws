@@ -122,7 +122,7 @@ tokens at 1.5 tok/s dominate), look-again 127-153 s (~400 prompt, ~130 generated
 
 ## Phase 3
 
-### Thinking mode does not fit on CPU
+### Thinking mode is too slow here
 Qwen3.5-4B with `enable_thinking: true` spent the whole 1024-token budget, then the whole 3072-token
 budget (8+ min at ~6.6 tok/s) reasoning about the plan without emitting the JSON (`finish_reason:
 length`, empty content). Per the plan's risk table, plan and triage now run with thinking **off**
@@ -154,7 +154,7 @@ call that fails is retried once without thinking (logged as `<id>_nothink`).
 | `seed7_v1` (before the fixes above) | valid, but survey at 10 m | 0.44 / 1.00 | 0.46 -> 0.34 m | 0.00 | 0.25 | 0.33 | 1/4 | 1 (nothing to judge) | 15 / 0 | 719 s | 9.3 GB |
 | `seed7_full` | valid first try, 20 m | **0.89 / 1.00** | 0.42 -> **0.12 m** | 0.25 | 0.38 | 0.33 | **7/8** | 1, **correct** | 20 / 0 | 1093 s* | 10.8 GB |
 
-\* `seed7_full` reports 5458 s of VLM time: the laptop suspended during `survey5` (4365 s wall at a
+\* `seed7_full` reports 5458 s of VLM time: the machine suspended during `survey5` (4365 s wall at a
 normal 6.0 tok/s decode). Without that call: ~1093 s VLM + 443 s flight, ~28 min in total. Typical
 calls: plan 29-43 s, survey 53-108 s (429 prompt tokens), look-again 38-48 s, triage 91 s; decode
 6.4-6.8 tok/s, prefill ~19 tok/s. Peak RAM is the sum of VmHWM over the stack (llama-server ~8.1 GB
@@ -199,7 +199,7 @@ gz server orphaned (it ignores SIGTERM), so run `scripts/flood_stop.sh` after ea
 - The model says "dense" for density; mapped to FloodNet's "high".
 
 ### Thinking mode
-Not evaluated on VQA: on this CPU a thinking call needs > 3k tokens (~8 min) per question, i.e.
+Not evaluated on VQA: on this setup a thinking call needs > 3k tokens (~8 min) per question, i.e.
 ~14 h for 100 questions. The planning experiment in Phase 3 is the evidence.
 
 ### VQA results (Q4_K_M, thinking off, neutral prompt)
@@ -209,12 +209,12 @@ Not evaluated on VQA: on this CPU a thinking call needs > 3k tokens (~8 min) per
 | FloodSim test, 448 px | 110 | 0.509 | 13.4 | 10.1 / 3.3 s |
 | FloodNet test (224 px) | 300 | 0.470 | 8.9 | 4.4 / 2.7 s |
 | FloodNet, "flooded area" prompt | 300 | 0.363 | 8.9 | 5.3 / 3.4 s |
-FloodNet latency was measured while the FloodSim collection sim was running (shared CPU).
+FloodNet latency was measured while the FloodSim collection sim was running (shared machine).
 The machine was rebooted during the 448 px run; the runner resumed from the per-question log.
 
 ### Status at wrap-up (2026-11-01)
 Done: FloodSim-VQA (360 frames, 1,381 questions, 20 checked), FloodNet test prep, VQA on both test
 sets, image-size ablation, latency split, plots. **Not done**: 10-seed missions with look-again
-on/off (stopped during seed 1 at the user's request; a Swishy GUI sim on the same CPU made each
+on/off (stopped during seed 1 at the user's request; a Swishy GUI sim on the same machine made each
 mission ~3x slower) and the Q8_0 vs Q4_K_M run (weights downloaded to ~/models/qwen35).
 `scripts/run_phase4.sh` resumes both; finished steps are skipped.

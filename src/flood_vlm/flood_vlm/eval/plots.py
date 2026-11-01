@@ -65,7 +65,7 @@ def main(argv=None):
         ax.scatter(float(r['wall_s']), float(r['acc']), marker=marks.get(r['dataset'], 'o'), s=60)
         ax.annotate(f"{r['dataset']}:{r['tag']}", (float(r['wall_s']), float(r['acc'])), fontsize=7,
                     xytext=(4, 4), textcoords='offset points')
-    ax.set_xlabel('seconds per question (CPU, llama.cpp)')
+    ax.set_xlabel('seconds per question')
     ax.set_ylabel('accuracy')
     ax.set_title('Accuracy vs latency (Qwen3.5-4B)')
     ax.grid(alpha=0.3)

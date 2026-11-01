@@ -117,7 +117,7 @@ def draw_map(m, gt: dict | None, path: str):
     ax.set_aspect('equal')
     ax.set_xlabel('world x (m)')
     ax.set_ylabel('world y (m)')
-    ax.set_title(f'FloodScout-VLM seed {m.args["seed"]} - water {w:.1f} m - numbers = rescue order')
+    ax.set_title(f'seed {m.args["seed"]} - water {w:.1f} m - numbers = rescue order')
     fig.tight_layout()
     fig.savefig(path, dpi=110)
     plt.close(fig)
@@ -156,7 +156,7 @@ def write_all(m, gt: dict | None):
     draw_map(m, gt, os.path.join(rd, 'map.png'))
 
     # ── report.md ─────────────────────────────────────────────────────────────
-    L = [f'# FloodScout-VLM report — {m.run_id}', '',
+    L = [f'# FloodScout report — {m.run_id}', '',
          f'**Mission:** "{m.events[0]["msg"].split(": ", 1)[1].strip(chr(34)) if m.events else ""}"', '',
          f'Seed {m.args["seed"]}, look-again {"on" if m.args.get("lookagain", True) else "off"}, '
          f'water now {m.io.water:.1f} m.', '', '## Plan', '']

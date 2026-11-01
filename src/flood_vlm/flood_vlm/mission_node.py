@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FloodScout-VLM mission agent (FLOOD_VLM_PLAN.md 3.1).
+"""FloodScout mission agent (FLOOD_VLM_PLAN.md 3.1).
 
     ros2 run flood_vlm mission_node --ros-args -p seed:=7 -p mission:="Find everyone ..."
 
@@ -455,7 +455,7 @@ class MissionNode(Node):
         self.declare_parameter('seed', 7)
         self.declare_parameter('mission', DEFAULT_MISSION)
         self.declare_parameter('lookagain', True)
-        self.declare_parameter('think_plan', False)     # thinking needs > 3k tokens on CPU (NOTES)
+        self.declare_parameter('think_plan', False)     # thinking needs > 3k tokens per call (NOTES)
         self.declare_parameter('think_triage', False)
         self.declare_parameter('runs_root', 'runs')
         self.declare_parameter('run_id', '')

@@ -1,4 +1,4 @@
-"""Full FloodScout-VLM mission (FLOOD_VLM_PLAN.md 3.3).
+"""Full FloodScout mission (FLOOD_VLM_PLAN.md 3.3).
 
     scripts/run_vlm.sh &          # llama-server, started separately
     ros2 launch flood_vlm flood_mission.launch.py seed:=7 \

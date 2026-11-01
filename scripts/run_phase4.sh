@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  FloodScout-VLM Phase 4 queue (FLOOD_VLM_PLAN.md 4.2-4.4). Long: run detached.
+#  FloodScout Phase 4 queue (FLOOD_VLM_PLAN.md 4.2-4.4). Long: run detached.
 #
 #    source scripts/flood_env.sh
 #    setsid nohup scripts/run_phase4.sh > results/phase4.log 2>&1 &

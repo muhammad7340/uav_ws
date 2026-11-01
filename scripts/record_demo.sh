@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  FloodScout-VLM demo recording (FLOOD_VLM_PLAN.md 3.4)
+#  FloodScout demo recording (FLOOD_VLM_PLAN.md 3.4)
 #
 #  Usage:  source scripts/flood_env.sh
 #          scripts/run_vlm.sh &                         # llama-server

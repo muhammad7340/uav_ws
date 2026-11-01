@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Source this before any FloodScout-VLM command:   source scripts/flood_env.sh
+# Source this before any FloodScout command:   source scripts/flood_env.sh
 # Isolates ROS 2 and Gazebo traffic from other simulations on the same machine
 # (e.g. the Swishy aquarium) and adds the flood models to the Gazebo path.
 _ws="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  FloodScout-VLM: start llama-server (Qwen3.5-4B + vision projector) on CPU.
+#  FloodScout: start llama-server (Qwen3.5-4B + vision projector).
 #
 #  Usage:   scripts/run_vlm.sh            # Q4_K_M
 #           QUANT=Q8_0 scripts/run_vlm.sh # ablation
