@@ -9,7 +9,7 @@ Spawns two extra cameras into the running flood world (no change to the world fi
   * dronecam: close-up of the drone on its pad (1280x720, 1 Hz, for the "our UAV" photo)
 and saves, named by sim time:
   <out>/showcase/<t>.jpg, <out>/down/<t>.jpg, <out>/dronecam/<t>.jpg,
-  <out>/path.csv (ground-truth drone path), <out>/cameras.json (poses + intrinsics).
+  <out>/path.csv (ground-truth drone path), <out>/water.csv, <out>/cameras.json (poses + intrinsics).
 scripts/make_video.py turns this plus runs/<id>/events.jsonl + vlm_calls.jsonl into the video.
 """
 import argparse
@@ -24,8 +24,9 @@ import rclpy
 from cv_bridge import CvBridge
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
 from sensor_msgs.msg import Image
+from std_msgs.msg import Float32
 
 from flood_vlm import gz_tools
 
@@ -71,6 +72,15 @@ class Recorder(Node):
                             ('dronecam', '/flood/dronecam/image')):
             self.create_subscription(Image, topic, lambda m, n=name: self.save(n, m), qos_profile_sensor_data)
         self.create_subscription(Odometry, 'drone/odom_ground_truth', self.odom, 10)
+        self.water = open(os.path.join(out, 'water.csv'), 'a')
+        latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                             reliability=ReliabilityPolicy.RELIABLE)
+        self.create_subscription(Float32, '/flood/water_level', self.water_cb, latched)
+
+    def water_cb(self, m):
+        t = self.get_clock().now().nanoseconds * 1e-9
+        self.water.write(f'{t:.2f},{m.data:.3f}\n')
+        self.water.flush()
 
     def save(self, name, msg):
         if name == 'dronecam':
