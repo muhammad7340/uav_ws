@@ -21,7 +21,8 @@ A ROS 2 Jazzy + Gazebo Harmonic workspace for a simulated quadrotor that:
 7. [ROS 2 Interface Reference](#7-ros-2-interface-reference)
 8. [Troubleshooting](#8-troubleshooting)
 9. [Git Workflow and Repository Rules](#9-git-workflow-and-repository-rules)
-10. [Credits and Licenses](#10-credits-and-licenses)
+10. [FloodScout-VLM: language-guided flood-relief scout](#10-floodscout-vlm-language-guided-flood-relief-scout)
+11. [Credits and Licenses](#11-credits-and-licenses)
 
 ---
 
@@ -441,7 +442,168 @@ Conventions:
 
 ---
 
-## 10. Credits and Licenses
+## 10. FloodScout-VLM: language-guided flood-relief scout
+
+A monsoon flood has hit a town. A responder types *"Find everyone who is stranded, judge who needs
+help first, and mark a safe spot near each person for the rescue boat."* The drone, driven by a
+**4B vision-language model running on the laptop CPU** (Qwen3.5-4B, llama.cpp), plans a survey from
+that sentence, finds and grounds people from 20 m, flies down to 8 m to confirm them, measures how
+far each roof is above the water, ranks who needs help first, drops an orange rescue beacon on a
+dry spot near each person, re-plans when the water rises mid-mission, and writes a report with a
+map. Everything lives in [`src/flood_vlm`](src/flood_vlm); the plan it follows is
+[`docs/notes/FLOOD_VLM_PLAN.md`](docs/notes/FLOOD_VLM_PLAN.md) and every deviation is logged in
+[`src/flood_vlm/NOTES.md`](src/flood_vlm/NOTES.md).
+
+<p align="center">
+  <img src="docs/flood/scene_seed7.png" width="44%" alt="generated flooded town, seed 7"/>
+  <img src="docs/flood/map_seed7.png" width="44%" alt="mission map, seed 7"/>
+</p>
+<p align="center">
+  <img src="docs/flood/grounded_boxes.png" width="60%" alt="VLM survey output on a down-camera frame"/>
+</p>
+
+### 10.1 How it works
+
+```mermaid
+flowchart LR
+    TXT["mission text"] --> PLAN["plan<br/>(VLM, JSON tool calls)"]
+    PLAN --> VAL{"validator"}
+    VAL -- invalid --> PLAN
+    VAL -- "valid / default plan" --> EXE["mission_node"]
+    subgraph SIM["Gazebo: flood_town_&lt;seed&gt;.sdf"]
+        DR["drone + EKF<br/>drone_way_home (goal_pose)"]
+        CAM["down camera"]
+        WAT["water_controller"]
+    end
+    EXE -- "drone/goal_pose" --> DR
+    CAM -- "frame + TF pose" --> EXE
+    EXE -- "image + prompt<br/>(sim paused)" --> LLM["llama-server<br/>Qwen3.5-4B Q4_K_M"]
+    LLM -- "JSON boxes / labels" --> EXE
+    EXE --> MEM["object memory<br/>ray-plane + two-view triangulation"]
+    MEM --> TRI["triage (VLM)"]
+    WAT -- "/flood/water_level" --> TRI
+    TRI --> BEA["beacons (gz create)<br/>/flood/rescue_requests"]
+    BEA --> REP["report.md, map.png, metrics.json"]
+```
+
+1. **Plan**: the mission text becomes `{steps: [{tool, args}]}` (tools: takeoff, survey, look_again,
+   triage, mark_beacon, report, return_home), constrained to a JSON schema and checked by a validator;
+   an invalid plan is sent back once with the errors, then the default plan is used.
+2. **Survey** at 20 m over a 3 x 2 grid. Each box is projected into the world with the camera
+   intrinsics and the EKF pose (ray-plane intersection).
+3. **Look again** at 8 m over every person: confirms them, posture, roof vs water, and a beacon point.
+   The two views (oblique survey + close look) are **triangulated** to measure the height the person
+   is on, which is what triage needs (how far above the water is that roof?).
+4. **Triage** ranks people (in water / lying = critical, roof < 1 m above water = high).
+5. **Beacons** in rescue order; when `/flood/water_level` rises, triage is re-run and the remaining
+   beacons re-ordered (the log says who moved up and why).
+6. **Report**: ranked rescue list with crops, re-plan events, timings and metrics scored against the
+   scene's ground truth.
+
+The sim is paused while the VLM thinks, so slow CPU inference never costs flight time.
+
+### 10.2 Run one mission (3 commands)
+
+One-time setup (llama.cpp + 3.4 GB of weights into `~/models/qwen35`, Gazebo Fuel models):
+
+```bash
+scripts/setup_vlm.sh
+```
+```bash
+colcon build --symlink-install --packages-select drone_basic flood_vlm
+```
+
+Then, in two terminals:
+
+```bash
+scripts/run_vlm.sh
+```
+```bash
+source scripts/flood_env.sh && ros2 launch flood_vlm flood_mission.launch.py seed:=7 headless:=true
+```
+
+The report lands in `runs/<run_id>/` (`report.md`, `map.png`, `metrics.json`, every VLM call in
+`vlm_calls.jsonl`). Drop `headless:=true` to watch it in the Gazebo GUI. Stop with
+`scripts/flood_stop.sh`, which also removes orphaned Gazebo servers. `scripts/flood_env.sh` isolates
+the flood stack on `ROS_DOMAIN_ID=42` / `GZ_PARTITION=flood_vlm`, so other simulations on the
+same machine are not disturbed. New towns: `ros2 run flood_vlm scene_gen --seed 3`.
+
+Useful launch arguments: `lookagain:=false`, `think_plan:=true`, `image_long_side:=448`,
+`mission:="..."`. Run on a laptop with the **performance power profile and Turbo Boost on**: in
+power-saver the same calls were 3-5x slower.
+
+### 10.3 Results
+
+All numbers: Qwen3.5-4B Q4_K_M, llama.cpp b12017 CPU build, 6 threads on an i5-1235U laptop
+(performance profile), thinking off. Raw data in [`results/`](results/).
+
+**Closed-loop mission, seed 7** (`runs/seed7_full`, 9 people):
+
+| recall / precision | localization: survey -> after look-again | safe beacons | re-plan after water rise | VLM calls (JSON errors) | time | peak RAM |
+|---|---|---|---|---|---|---|
+| 0.89 / 1.00 | 0.42 m -> **0.12 m** | 7 / 8 | correct | 20 (0) | ~28 min (18 min VLM) | 10.8 GB |
+
+Multi-seed missions with look-again on / off: `results/missions.csv` (run
+`ros2 run flood_vlm mission_eval --seeds 1..10 --lookagain on off`; ~28 min per mission).
+
+**VQA accuracy** (test splits; FloodSim = seeds 9-10, 640 x 480; FloodNet = 300 stratified questions
+from the HF mirror, 224 x 224):
+
+| | ALL | simple counting | complex counting | condition | yes / no | grounding | priority (A/B) | density | s / question |
+|---|---|---|---|---|---|---|---|---|---|
+| FloodSim-VQA, 640 x 480 (n=110) | **0.56** | 0.85 (+-1: 0.95) | 0.45 (+-1: 0.90) | 0.10 * | 0.75 | 0.55 | 0.80 | - | 21.0 |
+| FloodSim-VQA, 448 px (n=110) | 0.51 | 0.75 | 0.50 | 0.05 * | 0.65 | 0.45 | 0.80 | - | 13.4 |
+| FloodNet VQA, zero-shot (n=300) | **0.47** | 0.33 (+-1: 0.63) | 0.25 (+-1: 0.50) | 0.50 | 0.88 | - | - | 0.38 | 8.9 |
+| FloodNet, prompt "Aerial photo of a flooded area" | 0.36 | 0.37 | 0.23 | 0.33 | 0.53 | - | - | 0.35 | 8.9 |
+
+\* FloodSim road-condition questions are ~95 % "flooded" (raised roads are rarely in view); the model
+answers "passable" for submerged streets that still show through the water, so this type sits far
+below its majority baseline. The last row shows how much a leading prompt costs: saying "flooded"
+in the prompt made the model call 27/27 dry FloodNet scenes flooded.
+
+**Where the CPU time goes.** At 640 x 480 the image is ~330 prompt tokens and **vision encoding +
+prompt prefill is 85 % of the latency** (17.8 s of 21 s); decoding a one-word answer takes ~3 s.
+Halving the pixels (448 px, ~190 tokens) cuts the time to 13.4 s for -5.5 points. In the mission,
+survey calls that list every person and dry area also spend 30-50 s decoding (~6.6 tok/s).
+Thinking mode needs > 3,000 tokens per call (> 8 min) and is off.
+
+<p align="center">
+  <img src="docs/flood/latency_breakdown.png" width="48%" alt="latency breakdown"/>
+  <img src="docs/flood/pareto.png" width="48%" alt="accuracy vs latency"/>
+</p>
+
+### 10.4 Datasets and evaluation
+
+| Step | Command |
+|---|---|
+| FloodSim-VQA frames (10 seeds x 36 frames) | `scripts/collect_floodsim.sh 1 10` |
+| FloodSim-VQA questions (+ 20 GT overlays to check) | `ros2 run flood_vlm floodsim_vqa_gen questions --check 20` |
+| FloodNet VQA test split | `ros2 run flood_vlm floodnet_prep --download` |
+| VQA runs | `ros2 run flood_vlm run_vqa --dataset floodsim\|floodnet --n 120 --tag q4_640` |
+| Missions, look-again on/off | `ros2 run flood_vlm mission_eval --seeds 1..10 --lookagain on off` |
+| Everything, resumable | `setsid nohup scripts/run_phase4.sh > results/phase4.log 2>&1 &` |
+| Ablation table + plots | `python3 -m flood_vlm.eval.plots` |
+
+### 10.5 Limitations and next steps
+
+- **Simulated victims.** Mannequins and an animated walker on box-shaped houses; the down camera sees
+  clean geometry, real floods have glare, debris, trees over people and motion blur. FloodSim-VQA and
+  FloodNet ask different questions, so their scores are not directly comparable; a sim-to-real
+  study needs real flights.
+- **Posture from above is unreliable**: the model calls most rooftop people "lying", which makes them
+  critical and flattens the triage order. Triage would benefit from posture-specific prompts on the
+  close-up crop or a small posture classifier.
+- **Submerged roads look like roads**: road condition ("passable or flooded") is near chance on FloodSim.
+- **CPU-bound**: 20-110 s per VLM call; one mission is ~28 min of which ~2/3 is VLM time. Thinking mode
+  needs > 3k tokens per call and is not usable on this CPU.
+- **Single drone, no payload**: beacons are spawned, not dropped; the drone's own altitude is the
+  only safety margin (no obstacle avoidance).
+- Next: real FloodNet-style flights, an onboard Jetson / NPU or custom accelerator for the vision
+  encoder, multi-drone coverage, and a learned posture/urgency head on the VLM features.
+
+---
+
+## 11. Credits and Licenses
 
 | Component | Origin | License |
 |-----------|--------|---------|
@@ -453,6 +615,12 @@ Conventions:
 | EfficientSAM | [yformer/EfficientSAM](https://github.com/yformer/EfficientSAM) | Apache-2.0 |
 | YOLOE | [Ultralytics](https://github.com/ultralytics/ultralytics) | AGPL-3.0 |
 | SmolVLM / SmolVLM2 | [HuggingFaceTB](https://huggingface.co/HuggingFaceTB) | Apache-2.0 |
+| Qwen3.5-4B (GGUF) | [Qwen](https://huggingface.co/Qwen), quantized by [unsloth](https://huggingface.co/unsloth/Qwen3.5-4B-GGUF) | Apache-2.0 |
+| llama.cpp | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) | MIT |
+| Rescue Randy, Ambulance, RC Boat, cars, trees, Water tower | [Gazebo Fuel / OpenRobotics](https://app.gazebosim.org/OpenRobotics) | CC0 / CC-BY 4.0 |
+| `flood_people/walk.dae`, `flood_sandbags` | copied from `nav_ws2` (Gazebo actor sample, sandbag mesh) | see source |
+| `flood_driftwood` | Quaternius Ultimate Nature Pack, via Swishy | CC0 |
+| FloodNet VQA | [BinaLab/FloodNet](https://github.com/BinaLab/FloodNet-Challenge-EARTHVISION2021), mirror [ljx620/FloodNet-VQA](https://huggingface.co/datasets/ljx620/FloodNet-VQA) | CC BY-SA 4.0 |
 
 Each vendored package keeps its own `LICENSE` and `README.md` in its folder.
 

@@ -168,3 +168,46 @@ localised 4 m off at survey range and rejected at the look-again.
 Runs can be cut short by system suspend or a second Gazebo server: `exit_on_done:=true` leaves the
 gz server orphaned (it ignores SIGTERM), so run `scripts/flood_stop.sh` after each mission;
 `flood_world.launch.py` now refuses to start while one is alive.
+
+## Phase 4
+
+### FloodSim-VQA
+- `scripts/collect_floodsim.sh 1 10`: 3x3 grid (x, y in {-18, 0, 18}) at 20 m and 12 m, each frame at
+  water 0.8 and 2.4 m -> **360 frames**, 36 per seed, ~4.5 min per seed, no failed goals.
+  Camera pose for the GT projection comes from ground truth (`camera_pose_from_base`), not the EKF.
+- `floodsim_vqa_gen questions` -> **1,381 questions** (1,105 train seeds 1-8, 276 test seeds 9-10):
+  simple counting 327, complex counting 313, yes/no 337, condition 262, grounding 97, priority 45.
+- Checked 20 random questions by eye on their GT overlays (`data/floodsim/check/`): 19/20 right. The
+  wrong one asked about a ground-level street at a point covered by a raised embankment; road points
+  are now sampled outside houses, mounds and embankments (0/262 hidden points after the fix).
+  Frames where somebody's head is within 0.3 m of the water surface get no counting questions
+  (faintly visible through the water = ambiguous).
+- Road-condition questions are imbalanced: embankments are rarely in view, so ~95 % of answers are
+  "flooded". Read that type against the majority baseline.
+- The water is set straight through gz `set_pose` during collection. Through `/flood/set_water_level`
+  the controller stopped answering after ~18 rapid changes -- later traced to three orphaned
+  copies of the stack running at once (see `flood_stop.sh`).
+
+### FloodNet
+- HF mirror `ljx620/FloodNet-VQA` (webdataset). Its test split has 1,833 questions on **224 x 224**
+  images (the original FloodNet images are 3000 x 4000), types: Road / Entire-image / Building
+  condition, Density, Simple / Complex counting, Risk assessment. Mapping: building condition and
+  risk assessment are yes/no questions -> `yes_no`; density stays its own type.
+- First run used the prompt "Aerial photo of a flooded area. ..." and the model answered "flooded"
+  for 27/27 non-flooded scenes (condition 0.33, overall 0.363, kept as `q4_224_primed` in
+  results/vqa.csv). All VQA now uses the neutral "Aerial drone photo.".
+- The model says "dense" for density; mapped to FloodNet's "high".
+
+### Thinking mode
+Not evaluated on VQA: on this CPU a thinking call needs > 3k tokens (~8 min) per question, i.e.
+~14 h for 100 questions. The planning experiment in Phase 3 is the evidence.
+
+### VQA results (Q4_K_M, thinking off, neutral prompt)
+| set | n | acc | s/q | prefill / decode |
+|---|---|---|---|---|
+| FloodSim test, 640 x 480 | 110 | 0.564 | 21.0 | 17.8 / 2.9 s |
+| FloodSim test, 448 px | 110 | 0.509 | 13.4 | 10.1 / 3.3 s |
+| FloodNet test (224 px) | 300 | 0.470 | 8.9 | 4.4 / 2.7 s |
+| FloodNet, "flooded area" prompt | 300 | 0.363 | 8.9 | 5.3 / 3.4 s |
+FloodNet latency was measured while the FloodSim collection sim was running (shared CPU).
+The machine was rebooted during the 448 px run; the runner resumed from the per-question log.
