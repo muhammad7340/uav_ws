@@ -211,3 +211,10 @@ Not evaluated on VQA: on this CPU a thinking call needs > 3k tokens (~8 min) per
 | FloodNet, "flooded area" prompt | 300 | 0.363 | 8.9 | 5.3 / 3.4 s |
 FloodNet latency was measured while the FloodSim collection sim was running (shared CPU).
 The machine was rebooted during the 448 px run; the runner resumed from the per-question log.
+
+### Status at wrap-up (2026-11-01)
+Done: FloodSim-VQA (360 frames, 1,381 questions, 20 checked), FloodNet test prep, VQA on both test
+sets, image-size ablation, latency split, plots. **Not done**: 10-seed missions with look-again
+on/off (stopped during seed 1 at the user's request; a Swishy GUI sim on the same CPU made each
+mission ~3x slower) and the Q8_0 vs Q4_K_M run (weights downloaded to ~/models/qwen35).
+`scripts/run_phase4.sh` resumes both; finished steps are skipped.

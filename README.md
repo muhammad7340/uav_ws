@@ -543,8 +543,11 @@ All numbers: Qwen3.5-4B Q4_K_M, llama.cpp b12017 CPU build, 6 threads on an i5-1
 |---|---|---|---|---|---|---|
 | 0.89 / 1.00 | 0.42 m -> **0.12 m** | 7 / 8 | correct | 20 (0) | ~28 min (18 min VLM) | 10.8 GB |
 
-Multi-seed missions with look-again on / off: `results/missions.csv` (run
-`ros2 run flood_vlm mission_eval --seeds 1..10 --lookagain on off`; ~28 min per mission).
+Not done yet: the 10-seed mission evaluation with look-again on / off (~28 min per mission on a
+quiet machine, ~20 missions). `results/missions.csv` holds the two seed-7 runs (the first one is
+before the survey-altitude and beacon fixes). Resume with
+`ros2 run flood_vlm mission_eval --seeds 1..10 --lookagain on off`, or `scripts/run_phase4.sh`, which
+also runs the Q8_0 quantisation comparison.
 
 **VQA accuracy** (test splits; FloodSim = seeds 9-10, 640 x 480; FloodNet = 300 stratified questions
 from the HF mirror, 224 x 224):

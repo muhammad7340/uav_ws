@@ -1,0 +1,3 @@
+seed,lookagain,plan_source,plan_valid_first_try,n_gt,n_detected,precision,recall,loc_err_survey_m,loc_err_final_m,posture_acc,location_acc,kendall_tau,critical_in_topk,level_acc,n_beacons,safe_beacon_rate,n_replans,replan_correct,n_vlm_calls,n_json_errors,prompt_tokens,gen_tokens,vlm_s,flight_sim_s,flight_wall_s,total_wall_s,ram_peak_mb
+7 (seed7_v1),on,vlm,True,9,4,1.0,0.444,0.461,0.342,0.0,1.0,0.333,0.333,0.25,4,0.25,1,,15,0,5950,2834,719.1,229.4,230.9,991.8,9316
+7 (seed7_full),on,vlm,True,9,8,1.0,0.889,0.423,0.121,0.25,1.0,0.286,0.333,0.375,8,0.875,1,1.0,20,0,8740,4976,5457.8,440.3,443.4,5965.7,10802
