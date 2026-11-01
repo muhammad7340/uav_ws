@@ -76,7 +76,8 @@ def main():
                 frame = dash.mission(rd, ts, None, 1.0, thinking=time.time() - last_wall > 2.0)
         cv2.imshow(WIN, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
         key = cv2.waitKey(max(1, int(1000 / args.fps - (time.time() - t_loop) * 1000))) & 0xFF
-        if key in (ord('q'), 27) or cv2.getWindowProperty(WIN, cv2.WND_PROP_VISIBLE) < 1:
+        # stop on q / Esc or when the window was really closed (-1); minimizing it must not stop the mission
+        if key in (ord('q'), 27) or cv2.getWindowProperty(WIN, cv2.WND_PROP_AUTOSIZE) < 0:
             break
         if key == ord('f'):
             full = not full
